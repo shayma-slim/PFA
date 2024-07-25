@@ -1,0 +1,45 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE = 'your-username/fleetman-position-tracker'
+        REGISTRY_URL = 'docker.io'
+        CREDENTIALS_ID = 'your-credentials-id'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // Cloner le code source depuis le dépôt Git
+                checkout scm
+            }
+        }
+        stage('Build') {
+            steps {
+                script {
+                    // Construire l'image Docker
+                    def image = docker.build("${DOCKER_IMAGE}:${env.BUILD_ID}")
+                }
+            }
+        }
+        stage('Push') {
+            steps {
+                script {
+                    docker.withRegistry("https://${REGISTRY_URL}", "${CREDENTIALS_ID}") {
+                        def image = docker.image("${DOCKER_IMAGE}:${env.BUILD_ID}")
+                        image.push('latest')
+                    }
+                }
+            }
+        }
+        stage('Deploy') {
+            steps {
+                script {
+                    kubectl.apply(file: 'deployment.yaml')
+                    kubectl.apply(file: 'service.yaml')
+                }
+            }
+        }
+    }
+}
+
